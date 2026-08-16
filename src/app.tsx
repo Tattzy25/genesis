@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useState, useEffect, useRef } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { useVoiceAgent } from "@cloudflare/voice/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { ChatAgent } from "./server";
@@ -281,6 +282,15 @@ function Chat() {
   const [isAddingServer, setIsAddingServer] = useState(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
 
+  const {
+    status: voiceStatus,
+    transcript,
+    interimTranscript,
+    startCall,
+    endCall,
+    toggleMute
+  } = useVoiceAgent({ agent: "ChatAgent" });
+
   const agent = useAgent<ChatAgent>({
     agent: "ChatAgent",
     onOpen: useCallback(() => setConnected(true), []),
@@ -514,6 +524,25 @@ function Chat() {
                 size="sm"
                 aria-label="Toggle debug mode"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              {voiceStatus === "connected" || voiceStatus === "speaking" || voiceStatus === "listening" ? (
+                <Button
+                  variant="destructive"
+                  shape="square"
+                  icon={<StopIcon size={16} />}
+                  onClick={endCall}
+                  aria-label="End call"
+                />
+              ) : (
+                <Button
+                  variant="primary"
+                  shape="square"
+                  icon={<ChatCircleDotsIcon size={16} />}
+                  onClick={startCall}
+                  aria-label="Start voice call"
+                />
+              )}
             </div>
             <ThemeToggle />
             <div className="relative" ref={mcpPanelRef}>

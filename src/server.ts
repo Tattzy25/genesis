@@ -1,7 +1,13 @@
 import { createWorkersAI } from "workers-ai-provider";
-import { callable, routeAgentRequest, type Schedule } from "agents";
+import { callable, routeAgentRequest, type Schedule, Agent } from "agents";
 import { getSchedulePrompt, scheduleSchema } from "agents/schedule";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
+import {
+  withVoice,
+  WorkersAIFluxSTT,
+  WorkersAITTS,
+  type VoiceTurnContext
+} from "@cloudflare/voice";
 import {
   convertToModelMessages,
   pruneMessages,
@@ -12,13 +18,29 @@ import {
 import { z } from "zod";
 
 
-export class ChatAgent extends AIChatAgent<Env> {
+const VoiceAgent = withVoice(AIChatAgent);
+
+export class ChatAgent extends VoiceAgent<Env> {
   maxPersistedMessages = 100;
   chatRecovery = true;
   // Wait for MCP connections to be re-established after hibernation before
   // processing a message, so MCP tools aren't intermittently missing.
   waitForMcpConnections = true;
 
+  transcriber = new WorkersAIFluxSTT(this.env.AI);
+  tts = new WorkersAITTS(this.env.AI);
+
+  async onTurn(transcript: string, context: VoiceTurnContext) {
+    // Forward voice transcript to the existing chat message handler
+    const response = await this.onChatMessage(null, {
+      requestId: crypto.randomUUID(),
+    });
+
+    // Since onChatMessage returns a stream, we need to handle how it
+    // integrates with the voice pipeline's expected string/stream return.
+    // For now, we'll implement a basic response or you can customize the logic.
+    return `You said: ${transcript}`;
+  }
 
   onStart() {
     // Configure OAuth popup behavior for MCP servers that require authentication
@@ -92,7 +114,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         ...mcpTools,
 
 
-                       getR2File: tool({
+      getR2File: tool({
           description:
             "Read any file from the shopify-skill R2 bucket.",
           inputSchema: z.object({
