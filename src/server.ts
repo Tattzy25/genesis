@@ -11,12 +11,14 @@ import {
 } from "ai";
 import { z } from "zod";
 
+
 export class ChatAgent extends AIChatAgent<Env> {
   maxPersistedMessages = 100;
   chatRecovery = true;
   // Wait for MCP connections to be re-established after hibernation before
   // processing a message, so MCP tools aren't intermittently missing.
   waitForMcpConnections = true;
+
 
   onStart() {
     // Configure OAuth popup behavior for MCP servers that require authentication
@@ -36,19 +38,23 @@ export class ChatAgent extends AIChatAgent<Env> {
     });
   }
 
+
   @callable()
   async addServer(name: string, url: string) {
     return await this.addMcpServer(name, url);
   }
+
 
   @callable()
   async removeServer(serverId: string) {
     await this.removeMcpServer(serverId);
   }
 
+
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
     const mcpTools = this.mcp.getAITools();
     const workersai = createWorkersAI({ binding: this.env.AI });
+
 
     const result = streamText({
       model: workersai("@cf/google/gemma-4-26b-a4b-it", {
@@ -56,10 +62,12 @@ export class ChatAgent extends AIChatAgent<Env> {
       }),
       system: `You are a helpful assistant that can understand images, run calculations, schedule tasks, and access files stored across connected R2 buckets.
 
+
 You have access to three R2 storage buckets:
 - shopify-skill bucket (via getR2File)
 - agentic-commerce bucket (via getAgenticCommerceFile)
 - cloudflare-skills bucket (via getCloudflareSkillFile)
+
 
 When asked about skills, Shopify data, agentic commerce, Cloudflare configurations, or files stored in these buckets, use the appropriate tool to fetch the file contents.
 Besides the R2 buckets, you also have access to the connected mcp servers and their tools. If a tool is not available, you can ask the user to connect to the server or provide the necessary information.
@@ -68,7 +76,9 @@ All executed codes must be and has to always be Production ready code, the less 
 Your Name is Genesis Your The King at what you do and you have fun and Love doing what you do including helping the user.
 
 THE NUMBER 1 RULE IS: RESPECT THE CODE RESPECT THE WORKSPACE RESPECT THE USER AND RESPECT YOURSELF AS A GENIUS.
+
 ${getSchedulePrompt({ date: new Date() })}
+
 
 If the user asks to schedule a task, use the schedule tool to schedule the task.`,
       // Prune old tool calls and reasoning to save tokens on long conversations
@@ -81,60 +91,70 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-                       listR2Files: tool({
-          description:
-            "List, search, or browse file keys/names inside any of the 3 R2 buckets. Use prefix to filter folders, or limit to control results count.",
-          inputSchema: z.object({
-            bucket: z
-              .enum(["shopify", "agentic-commerce", "cloudflare-skills"])
-              .describe("Which bucket to search/list"),
-            prefix: z
-              .string()
-              .optional()
-              .describe("Optional folder prefix or path filter, e.g. 'skills/' or 'products/'"),
-            cursor: z
-              .string()
-              .optional()
-              .describe("Pagination cursor for getting more results"),
-            limit: z
-              .number()
-              .optional()
-              .default(100)
-              .describe("Maximum number of file keys to return (default 100, max 1000)")
-          }),
-          execute: async ({ bucket, prefix, cursor, limit }) => {
-            const bucketMap = {
-              shopify: this.env.R2,
-              "agentic-commerce": this.env["r2-agentic-commerce"],
-              "cloudflare-skills": this.env["r2-cloudflare"]
-            };
 
-            const targetBucket = bucketMap[bucket];
-            const listing = await targetBucket.list({
-              prefix,
-              cursor,
-              limit: Math.min(limit ?? 100, 1000)
-            });
+               getR2File: tool({
+          description:
+            "Read any file from the shopify-skill R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env.R2.get(key);
+
 
             return {
-              bucket,
-              truncated: listing.truncated,
-              cursor: listing.truncated ? listing.cursor : undefined,
-              files: listing.objects.map((obj) => ({
-                key: obj.key,
-                size: obj.size,
-                uploaded: obj.uploaded
-              }))
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
             };
           }
         }),
-        
+
+
+        getAgenticCommerceFile: tool({
+          description:
+            "Read any file from the agentic-commerce R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env["r2-agentic-commerce"].get(key);
+
+
+            return {
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
+            };
+          }
+        }),
+
+
+        getCloudflareSkillFile: tool({
+          description:
+            "Read any file from the cloudflare-skills R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env["r2-cloudflare"].get(key);
+
+
+            return {
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
+            };
+          }
+        }),
+       
         // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
           inputSchema: z.object({})
         }),
+
 
         // Approval tool: requires user confirmation before executing
         calculate: tool({
@@ -167,6 +187,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
+
         scheduleTask: tool({
           description:
             "Schedule a task to be executed at a later time. Use this when the user asks to be reminded or wants something done later.",
@@ -195,6 +216,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
+
         getScheduledTasks: tool({
           description: "List all tasks that have been scheduled",
           inputSchema: z.object({}),
@@ -203,6 +225,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             return tasks.length > 0 ? tasks : "No scheduled tasks found.";
           }
         }),
+
 
         cancelScheduledTask: tool({
           description: "Cancel a scheduled task by its ID",
@@ -223,12 +246,15 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
       abortSignal: options?.abortSignal
     });
 
+
     return result.toUIMessageStreamResponse();
   }
+
 
   async executeTask(description: string, _task: Schedule<string>) {
     // Do the actual work here (send email, call API, etc.)
     console.log(`Executing scheduled task: ${description}`);
+
 
     // Notify connected clients via a broadcast event.
     // We use broadcast() instead of saveMessages() to avoid injecting
@@ -243,6 +269,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
     );
   }
 }
+
 
 export default {
   async fetch(request: Request, env: Env) {
