@@ -54,7 +54,14 @@ export class ChatAgent extends AIChatAgent<Env> {
       model: workersai("@cf/google/gemma-4-26b-a4b-it", {
         sessionAffinity: this.sessionAffinity
       }),
-      system: `You are a helpful assistant that can understand images. You can check the weather, get the user's timezone, run calculations, and schedule tasks. When users share images, describe what you see and answer questions about them.
+      system: `You are a helpful assistant that can understand images, run calculations, schedule tasks, and access files stored across connected R2 buckets.
+
+You have access to three R2 storage buckets:
+- shopify-skill bucket (via getR2File)
+- agentic-commerce bucket (via getAgenticCommerceFile)
+- cloudflare-skills bucket (via getCloudflareSkillFile)
+
+When asked about skills, Shopify data, agentic commerce, Cloudflare configurations, or files stored in these buckets, use the appropriate tool to fetch the file contents.
 
 ${getSchedulePrompt({ date: new Date() })}
 
