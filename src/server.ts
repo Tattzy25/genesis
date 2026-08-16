@@ -51,7 +51,7 @@ export class ChatAgent extends AIChatAgent<Env> {
     const workersai = createWorkersAI({ binding: this.env.AI });
 
     const result = streamText({
-      model: workersai("@cf/moonshotai/kimi-k2.7-code", {
+      model: workersai("@cf/google/gemma-4-26b-a4b-it", {
         sessionAffinity: this.sessionAffinity
       }),
       system: `You are a helpful assistant that can understand images. You can check the weather, get the user's timezone, run calculations, and schedule tasks. When users share images, describe what you see and answer questions about them.
@@ -69,27 +69,73 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-        // Server-side tool: runs automatically on the server
-        getWeather: tool({
-          description: "Get the current weather for a city",
+        getR2File: tool({
+          description:
+            "Read a text or JSON file from the R2 bucket.",
           inputSchema: z.object({
-            city: z.string().describe("City name")
+            key: z.string().describe("Exact R2 object key")
           }),
-          execute: async ({ city }) => {
-            // Replace with a real weather API in production
-            const conditions = ["sunny", "cloudy", "rainy", "snowy"];
-            const temp = Math.floor(Math.random() * 30) + 5;
+          execute: async ({ key }) => {
+            const object = await this.env.R2.get(key);
+
             return {
-              city,
-              temperature: temp,
-              condition:
-                conditions[Math.floor(Math.random() * conditions.length)],
-              unit: "celsius"
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
             };
           }
         }),
 
-        // Client-side tool: no execute function — the browser handles it
+                getR2File: tool({
+          description:
+            "Read any file from the shopify-skill R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env.R2.get(key);
+
+            return {
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
+            };
+          }
+        }),
+
+        getAgenticCommerceFile: tool({
+          description:
+            "Read any file from the agentic-commerce R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env["r2-agentic-commerce"].get(key);
+
+            return {
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
+            };
+          }
+        }),
+
+        getCloudflareSkillFile: tool({
+          description:
+            "Read any file from the cloudflare-skills R2 bucket.",
+          inputSchema: z.object({
+            key: z.string().describe("Exact R2 object key")
+          }),
+          execute: async ({ key }) => {
+            const object = await this.env["r2-cloudflare"].get(key);
+
+            return {
+              key,
+              contentType: object?.httpMetadata?.contentType ?? "unknown",
+              content: await object?.text()
+            };
+          }
+        }),
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",

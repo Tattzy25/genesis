@@ -18,6 +18,14 @@
         {
             "binding": "R2",
             "bucket_name": "shopify-skill"
+        },
+        {
+            "binding": "r2-agentic-commerce",
+            "bucket_name": "agentic-commerce"
+        },
+        {
+            "binding": "r2-cloudflare",
+            "bucket_name": "cloudflare-skills"
         }
     ],
     "assets": {
@@ -28,6 +36,15 @@
             "/oauth/*"
         ]
     },
+    "routes": [
+        {
+            "pattern": "genesis.tattty.com",
+            "zone_name": "tattty.com",
+            "custom_domain": true,
+            "enabled": true,
+            "previews_enabled": false
+        }
+    ],
     "durable_objects": {
         "bindings": [
             {
@@ -47,12 +64,12 @@
     "observability": {
         "enabled": true
     },
-    "upload_source_maps": true,
+    "upload_source_maps": true
     /**
      * Smart Placement
      * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
      */
-    // "placement": {  "mode": "smart" }
+    // "placement": { "mode": "smart" }
     /**
      * Bindings
      * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
@@ -65,10 +82,10 @@
      * Note: Use secrets to store sensitive data.
      * https://developers.cloudflare.com/workers/configuration/secrets/
      */
-    // "vars": {  "MY_VARIABLE": "production_value" }
+    // "vars": { "MY_VARIABLE": "production_value" }
     /**
      * Service Bindings (communicate between multiple Workers)
      * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
      */
-    // "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+    // "services": [ { "binding": "MY_SERVICE", "service": "my-service" } ]
 }
