@@ -284,11 +284,8 @@ function Chat() {
 
   const {
     status: voiceStatus,
-    transcript,
-    interimTranscript,
     startCall,
-    endCall,
-    toggleMute
+    endCall
   } = useVoiceAgent({ agent: "ChatAgent" });
 
   const agent = useAgent<ChatAgent>({
@@ -526,7 +523,9 @@ function Chat() {
               />
             </div>
             <div className="flex items-center gap-2">
-              {(voiceStatus as string) === "connected" || (voiceStatus as string) === "speaking" || (voiceStatus as string) === "listening" ? (
+              {(voiceStatus as string) === "connected" ||
+              (voiceStatus as string) === "speaking" ||
+              (voiceStatus as string) === "listening" ? (
                 <Button
                   variant="destructive"
                   shape="square"

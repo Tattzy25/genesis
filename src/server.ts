@@ -1,5 +1,5 @@
 import { createWorkersAI } from "workers-ai-provider";
-import { callable, routeAgentRequest, type Schedule, Agent } from "agents";
+import { callable, routeAgentRequest, type Schedule } from "agents";
 import { getSchedulePrompt, scheduleSchema } from "agents/schedule";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import {
@@ -17,7 +17,6 @@ import {
 } from "ai";
 import { z } from "zod";
 
-
 const VoiceAgent = withVoice(AIChatAgent);
 
 export class ChatAgent extends VoiceAgent<Env> {
@@ -30,16 +29,29 @@ export class ChatAgent extends VoiceAgent<Env> {
   transcriber = new WorkersAIFluxSTT(this.env.AI);
   tts = new WorkersAITTS(this.env.AI);
 
-  async onTurn(transcript: string, context: VoiceTurnContext) {
+  afterTranscribe(transcript: string, _connection: unknown) {
+    if (transcript.length < 3) return null;
+    return transcript;
+  }
+
+  beforeSynthesize(text: string, _connection: unknown) {
+    return text.replace(/\bAI\b/g, "A.I.");
+  }
+
+  async onTurn(transcript: string, _context: VoiceTurnContext) {
     // Forward voice transcript to the existing chat message handler
-    const response = await this.onChatMessage(null, {
-      requestId: crypto.randomUUID(),
+    await this.onChatMessage(null, {
+      requestId: crypto.randomUUID()
     });
 
     // Since onChatMessage returns a stream, we need to handle how it
     // integrates with the voice pipeline's expected string/stream return.
     // For now, we'll implement a basic response or you can customize the logic.
     return `You said: ${transcript}`;
+  }
+
+  async onCallStart(connection: unknown) {
+    await this.speak(connection, "Hi there! How can I help you today?");
   }
 
   onStart() {
@@ -60,23 +72,19 @@ export class ChatAgent extends VoiceAgent<Env> {
     });
   }
 
-
   @callable()
   async addServer(name: string, url: string) {
     return await this.addMcpServer(name, url);
   }
-
 
   @callable()
   async removeServer(serverId: string) {
     await this.removeMcpServer(serverId);
   }
 
-
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
     const mcpTools = this.mcp.getAITools();
     const workersai = createWorkersAI({ binding: this.env.AI });
-
 
     const result = streamText({
       model: workersai("@cf/google/gemma-4-26b-a4b-it", {
@@ -113,10 +121,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-
-      getR2File: tool({
-          description:
-            "Read any file from the shopify-skill R2 bucket.",
+        getR2File: tool({
+          description: "Read any file from the shopify-skill R2 bucket.",
           inputSchema: z.object({
             key: z.string().describe("Exact R2 object key")
           }),
@@ -135,10 +141,24 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           description:
             "List files and folders in the shopify-skill R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
           inputSchema: z.object({
-            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
-            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
-            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
-            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+            prefix: z
+              .string()
+              .optional()
+              .describe(
+                "Folder prefix to list (e.g. 'folder/'). Omit to list root."
+              ),
+            delimiter: z
+              .string()
+              .optional()
+              .describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor from a previous truncated result."),
+            limit: z
+              .number()
+              .optional()
+              .describe("Max objects per page (default 1000, max 1000).")
           }),
           execute: async ({ prefix, delimiter, cursor, limit }) => {
             const result = await this.env.R2.list({
@@ -149,7 +169,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             });
             return {
               folders: result.delimitedPrefixes,
-              files: result.objects.map(o => ({
+              files: result.objects.map((o) => ({
                 key: o.key,
                 size: o.size,
                 contentType: o.httpMetadata?.contentType ?? "unknown"
@@ -160,9 +180,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-                getAgenticCommerceFile: tool({
-          description:
-            "Read any file from the agentic-commerce R2 bucket.",
+        getAgenticCommerceFile: tool({
+          description: "Read any file from the agentic-commerce R2 bucket.",
           inputSchema: z.object({
             key: z.string().describe("Exact R2 object key")
           }),
@@ -181,10 +200,24 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           description:
             "List files and folders in the agentic-commerce R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
           inputSchema: z.object({
-            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
-            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
-            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
-            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+            prefix: z
+              .string()
+              .optional()
+              .describe(
+                "Folder prefix to list (e.g. 'folder/'). Omit to list root."
+              ),
+            delimiter: z
+              .string()
+              .optional()
+              .describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor from a previous truncated result."),
+            limit: z
+              .number()
+              .optional()
+              .describe("Max objects per page (default 1000, max 1000).")
           }),
           execute: async ({ prefix, delimiter, cursor, limit }) => {
             const result = await this.env["r2-agentic-commerce"].list({
@@ -195,7 +228,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             });
             return {
               folders: result.delimitedPrefixes,
-              files: result.objects.map(o => ({
+              files: result.objects.map((o) => ({
                 key: o.key,
                 size: o.size,
                 contentType: o.httpMetadata?.contentType ?? "unknown"
@@ -206,9 +239,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-                getCloudflareSkillFile: tool({
-          description:
-            "Read any file from the cloudflare-skills R2 bucket.",
+        getCloudflareSkillFile: tool({
+          description: "Read any file from the cloudflare-skills R2 bucket.",
           inputSchema: z.object({
             key: z.string().describe("Exact R2 object key")
           }),
@@ -227,10 +259,24 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           description:
             "List files and folders in the cloudflare-skills R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
           inputSchema: z.object({
-            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
-            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
-            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
-            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+            prefix: z
+              .string()
+              .optional()
+              .describe(
+                "Folder prefix to list (e.g. 'folder/'). Omit to list root."
+              ),
+            delimiter: z
+              .string()
+              .optional()
+              .describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor from a previous truncated result."),
+            limit: z
+              .number()
+              .optional()
+              .describe("Max objects per page (default 1000, max 1000).")
           }),
           execute: async ({ prefix, delimiter, cursor, limit }) => {
             const result = await this.env["r2-cloudflare"].list({
@@ -241,7 +287,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             });
             return {
               folders: result.delimitedPrefixes,
-              files: result.objects.map(o => ({
+              files: result.objects.map((o) => ({
                 key: o.key,
                 size: o.size,
                 contentType: o.httpMetadata?.contentType ?? "unknown"
@@ -252,14 +298,12 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-       
         // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
           inputSchema: z.object({})
         }),
-
 
         // Approval tool: requires user confirmation before executing
         calculate: tool({
@@ -292,7 +336,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-
         scheduleTask: tool({
           description:
             "Schedule a task to be executed at a later time. Use this when the user asks to be reminded or wants something done later.",
@@ -321,7 +364,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
-
         getScheduledTasks: tool({
           description: "List all tasks that have been scheduled",
           inputSchema: z.object({}),
@@ -330,7 +372,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             return tasks.length > 0 ? tasks : "No scheduled tasks found.";
           }
         }),
-
 
         cancelScheduledTask: tool({
           description: "Cancel a scheduled task by its ID",
@@ -351,15 +392,12 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
       abortSignal: options?.abortSignal
     });
 
-
     return result.toUIMessageStreamResponse();
   }
-
 
   async executeTask(description: string, _task: Schedule<string>) {
     // Do the actual work here (send email, call API, etc.)
     console.log(`Executing scheduled task: ${description}`);
-
 
     // Notify connected clients via a broadcast event.
     // We use broadcast() instead of saveMessages() to avoid injecting
@@ -374,7 +412,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
     );
   }
 }
-
 
 export default {
   async fetch(request: Request, env: Env) {

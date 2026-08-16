@@ -3,57 +3,58 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-    "$schema": "node_modules/wrangler/config-schema.json",
-    "name": "broad-queen-b674",
-    "main": "src/server.ts",
-    "compatibility_date": "2026-06-11",
-    "compatibility_flags": [
-        "nodejs_compat"
-    ],
-    "ai": {
-        "binding": "AI",
-        "remote": true
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "broad-queen-b674",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-08-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "shopify-skill"
     },
-    "r2_buckets": [
-        {
-            "binding": "R2",
-            "bucket_name": "shopify-skill"
-        },
-        {
-            "binding": "r2-agentic-commerce",
-            "bucket_name": "agentic-commerce"
-        },
-        {
-            "binding": "r2-cloudflare",
-            "bucket_name": "cloudflare-skills"
-        }
-    ],
-    "assets": {
-        "directory": "./public",
-        "not_found_handling": "single-page-application",
-        "run_worker_first": [
-            "/agents/*",
-            "/oauth/*"
-        ]
+    {
+      "binding": "r2-agentic-commerce",
+      "bucket_name": "agentic-commerce"
     },
-    "durable_objects": {
-        "bindings": [
-            {
-                "class_name": "ChatAgent",
-                "name": "ChatAgent"
-            }
-        ]
+    {
+      "binding": "r2-cloudflare",
+      "bucket_name": "cloudflare-skills"
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/agents/*", "/oauth/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "ChatAgent",
+        "name": "ChatAgent"
+      },
+      {
+        "class_name": "MyVoiceAgent",
+        "name": "MyVoiceAgent"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "new_sqlite_classes": ["ChatAgent"],
+      "tag": "v1"
     },
-    "migrations": [
-        {
-            "new_sqlite_classes": [
-                "ChatAgent"
-            ],
-            "tag": "v1"
-        }
-    ],
-    "observability": {
-        "enabled": true
-    },
-    "upload_source_maps": true
+    {
+      "new_sqlite_classes": ["MyVoiceAgent"],
+      "tag": "v2"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true
 }
