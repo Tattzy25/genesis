@@ -54,14 +54,12 @@ export class ChatAgent extends AIChatAgent<Env> {
       model: workersai("@cf/google/gemma-4-26b-a4b-it", {
         sessionAffinity: this.sessionAffinity
       }),
-      system: `You are a helpful assistant that can understand images, run calculations, schedule tasks, and access files stored across connected R2 buckets.
+      system: `You are an AI Authoritarian level in shopify UCP Universal context protocol, MCP Model Context Protocol, Agentic Commerce and Genius with access to three Cloudflare R2 storage buckets containing large collections of files and skills:
+- "shopify" (via getR2File / listR2Files)
+- "agentic-commerce" (via getAgenticCommerceFile / listR2Files)
+- "cloudflare-skills" (via getCloudflareSkillFile / listR2Files)
 
-You have access to three R2 storage buckets:
-- shopify-skill bucket (via getR2File)
-- agentic-commerce bucket (via getAgenticCommerceFile)
-- cloudflare-skills bucket (via getCloudflareSkillFile)
-
-When asked about skills, Shopify data, agentic commerce, Cloudflare configurations, or files stored in these buckets, use the appropriate tool to fetch the file contents.
+When a user asks what skills, tools, or files exist in any bucket, or when you need to locate a file whose exact name is unknown, always use listR2Files first to search the bucket by prefix or browse available keys. Once you find the target file key, use the corresponding get file tool to read its contents.
 
 ${getSchedulePrompt({ date: new Date() })}
 
@@ -76,53 +74,50 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-               getR2File: tool({
+                       listR2Files: tool({
           description:
-            "Read any file from the shopify-skill R2 bucket.",
+            "List, search, or browse file keys/names inside any of the 3 R2 buckets. Use prefix to filter folders, or limit to control results count.",
           inputSchema: z.object({
-            key: z.string().describe("Exact R2 object key")
+            bucket: z
+              .enum(["shopify", "agentic-commerce", "cloudflare-skills"])
+              .describe("Which bucket to search/list"),
+            prefix: z
+              .string()
+              .optional()
+              .describe("Optional folder prefix or path filter, e.g. 'skills/' or 'products/'"),
+            cursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor for getting more results"),
+            limit: z
+              .number()
+              .optional()
+              .default(100)
+              .describe("Maximum number of file keys to return (default 100, max 1000)")
           }),
-          execute: async ({ key }) => {
-            const object = await this.env.R2.get(key);
-
-            return {
-              key,
-              contentType: object?.httpMetadata?.contentType ?? "unknown",
-              content: await object?.text()
+          execute: async ({ bucket, prefix, cursor, limit }) => {
+            const bucketMap = {
+              shopify: this.env.R2,
+              "agentic-commerce": this.env["r2-agentic-commerce"],
+              "cloudflare-skills": this.env["r2-cloudflare"]
             };
-          }
-        }),
 
-        getAgenticCommerceFile: tool({
-          description:
-            "Read any file from the agentic-commerce R2 bucket.",
-          inputSchema: z.object({
-            key: z.string().describe("Exact R2 object key")
-          }),
-          execute: async ({ key }) => {
-            const object = await this.env["r2-agentic-commerce"].get(key);
+            const targetBucket = bucketMap[bucket];
+            const listing = await targetBucket.list({
+              prefix,
+              cursor,
+              limit: Math.min(limit ?? 100, 1000)
+            });
 
             return {
-              key,
-              contentType: object?.httpMetadata?.contentType ?? "unknown",
-              content: await object?.text()
-            };
-          }
-        }),
-
-        getCloudflareSkillFile: tool({
-          description:
-            "Read any file from the cloudflare-skills R2 bucket.",
-          inputSchema: z.object({
-            key: z.string().describe("Exact R2 object key")
-          }),
-          execute: async ({ key }) => {
-            const object = await this.env["r2-cloudflare"].get(key);
-
-            return {
-              key,
-              contentType: object?.httpMetadata?.contentType ?? "unknown",
-              content: await object?.text()
+              bucket,
+              truncated: listing.truncated,
+              cursor: listing.truncated ? listing.cursor : undefined,
+              files: listing.objects.map((obj) => ({
+                key: obj.key,
+                size: obj.size,
+                uploaded: obj.uploaded
+              }))
             };
           }
         }),
