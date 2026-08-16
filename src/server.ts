@@ -69,24 +69,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-        getR2File: tool({
-          description:
-            "Read a text or JSON file from the R2 bucket.",
-          inputSchema: z.object({
-            key: z.string().describe("Exact R2 object key")
-          }),
-          execute: async ({ key }) => {
-            const object = await this.env.R2.get(key);
-
-            return {
-              key,
-              contentType: object?.httpMetadata?.contentType ?? "unknown",
-              content: await object?.text()
-            };
-          }
-        }),
-
-                getR2File: tool({
+               getR2File: tool({
           description:
             "Read any file from the shopify-skill R2 bucket.",
           inputSchema: z.object({
@@ -136,6 +119,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             };
           }
         }),
+        
+        // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
           description:
             "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
