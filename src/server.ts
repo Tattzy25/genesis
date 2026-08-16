@@ -54,17 +54,14 @@ export class ChatAgent extends AIChatAgent<Env> {
       model: workersai("@cf/google/gemma-4-26b-a4b-it", {
         sessionAffinity: this.sessionAffinity
       }),
-      system: `You are an AI Authoritarian level in shopify UCP Universal context protocol, MCP Model Context Protocol, Agentic Commerce and Genius with access to three Cloudflare R2 storage buckets containing large collections of files and skills:
-You have access to three Cloudflare R2 storage buckets: shopify, agentic-commerce, and cloudflare-skills.
+      system: `You are a helpful assistant that can understand images, run calculations, schedule tasks, and access files stored across connected R2 buckets.
 
-Workflow Protocol:
+You have access to three R2 storage buckets:
+- shopify-skill bucket (via getR2File)
+- agentic-commerce bucket (via getAgenticCommerceFile)
+- cloudflare-skills bucket (via getCloudflareSkillFile)
 
-Discovery: If a file's exact name is unknown, or if the user asks for a category of skills/tools, always use listR2Files first to search by prefix or browse available keys.
-Retrieval: Once the exact file key is identified, use getAnyR2File to read the content.
-
-it is important to never lie and invent any information. If you don't know the answer, say "I don't know" or "I cannot answer that" and or even "i cannot find that file".
-
-You must always if fixing, updating or using one of the file refrences to write any type of code to always use the getAnyR2File tool to read the contents of the file from the appropriate R2 bucket. Do not assume you know the contents of any file, if the skil is not available then simply ask the user to provide the file or skill.
+When asked about skills, Shopify data, agentic commerce, Cloudflare configurations, or files stored in these buckets, use the appropriate tool to fetch the file contents.
 Besides the R2 buckets, you also have access to the connected mcp servers and their tools. If a tool is not available, you can ask the user to connect to the server or provide the necessary information.
 All executed codes must be and has to always be Production ready code, the less the dependencies the better it is during the execution of the code. If you are not sure about the code, ask the user for clarification or more information.
 
@@ -84,45 +81,54 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // MCP tools from connected servers
         ...mcpTools,
 
-                       getAnyR2File: tool({
-  description: "Read the contents of any file from the shopify, agentic-commerce, or cloudflare-skills buckets.",
-  inputSchema: z.object({
-    bucket: z
-      .enum(["shopify", "agentic-commerce", "cloudflare-skills"])
-      .describe("Which bucket to pull the file from"),
-    key: z.string().describe("The full path/key of the file to read")
-  }),
-  execute: async ({ bucket, key }) => {
-    // 1. Use your proven, working bucket mapping
-    const bucketMap = {
-      shopify: this.env.R2,
-      "agentic-commerce": this.env["r2-agentic-commerce"],
-      "cloudflare-skills": this.env["r2-cloudflare"]
-    };
+                       listR2Files: tool({
+          description:
+            "List, search, or browse file keys/names inside any of the 3 R2 buckets. Use prefix to filter folders, or limit to control results count.",
+          inputSchema: z.object({
+            bucket: z
+              .enum(["shopify", "agentic-commerce", "cloudflare-skills"])
+              .describe("Which bucket to search/list"),
+            prefix: z
+              .string()
+              .optional()
+              .describe("Optional folder prefix or path filter, e.g. 'skills/' or 'products/'"),
+            cursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor for getting more results"),
+            limit: z
+              .number()
+              .optional()
+              .default(100)
+              .describe("Maximum number of file keys to return (default 100, max 1000)")
+          }),
+          execute: async ({ bucket, prefix, cursor, limit }) => {
+            const bucketMap = {
+              shopify: this.env.R2,
+              "agentic-commerce": this.env["r2-agentic-commerce"],
+              "cloudflare-skills": this.env["r2-cloudflare"]
+            };
 
-    const targetBucket = bucketMap[bucket];
+            const targetBucket = bucketMap[bucket];
+            const listing = await targetBucket.list({
+              prefix,
+              cursor,
+              limit: Math.min(limit ?? 100, 1000)
+            });
 
-    if (!targetBucket) {
-      throw new Error(`Bucket '${bucket}' is not configured.`);
-    }
-
-    // 2. Retrieve the object
-    const object = await targetBucket.get(key);
-
-    if (!object) {
-      throw new Error(`File not found: ${key} in bucket ${bucket}`);
-    }
-
-    // 3. Convert to text and return
-    const content = await object.text();
-    
-    return {
-      bucket,
-      key,
-      content
-    };
-  }
-}),
+            return {
+              bucket,
+              truncated: listing.truncated,
+              cursor: listing.truncated ? listing.cursor : undefined,
+              files: listing.objects.map((obj) => ({
+                key: obj.key,
+                size: obj.size,
+                uploaded: obj.uploaded
+              }))
+            };
+          }
+        }),
+        
         // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
           description:
