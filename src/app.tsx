@@ -526,7 +526,7 @@ function Chat() {
               />
             </div>
             <div className="flex items-center gap-2">
-              {voiceStatus === "connected" || voiceStatus === "speaking" || voiceStatus === "listening" ? (
+              {(voiceStatus as string) === "connected" || (voiceStatus as string) === "speaking" || (voiceStatus as string) === "listening" ? (
                 <Button
                   variant="destructive"
                   shape="square"
