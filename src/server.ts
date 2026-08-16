@@ -64,9 +64,9 @@ export class ChatAgent extends AIChatAgent<Env> {
 
 
 You have access to three R2 storage buckets:
-- shopify-skill bucket (via getR2File)
-- agentic-commerce bucket (via getAgenticCommerceFile)
-- cloudflare-skills bucket (via getCloudflareSkillFile)
+- shopify-skill bucket (via listR2Files to browse, getR2File to read)
+- agentic-commerce bucket (via listAgenticCommerceFiles to browse, getAgenticCommerceFile to read)
+- cloudflare-skills bucket (via listCloudflareSkillFiles to browse, getCloudflareSkillFile to read)
 
 
 When asked about skills, Shopify data, agentic commerce, Cloudflare configurations, or files stored in these buckets, use the appropriate tool to fetch the file contents.
