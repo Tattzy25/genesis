@@ -4,7 +4,7 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useVoiceAgent } from "@cloudflare/voice/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { MCPServersState } from "agents";
-import type { ChatAgent } from "./server";
+import type { VoiceAgent } from "./server";
 import {
   Badge,
   Button,
@@ -284,12 +284,15 @@ function Chat() {
 
   const {
     status: voiceStatus,
+    interimTranscript,
+    audioLevel,
     startCall,
-    endCall
-  } = useVoiceAgent({ agent: "ChatAgent" });
+    endCall,
+    sendText
+  } = useVoiceAgent({ agent: "VoiceAgent" });
 
-  const agent = useAgent<ChatAgent>({
-    agent: "ChatAgent",
+  const agent = useAgent<VoiceAgent>({
+    agent: "VoiceAgent",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
@@ -452,6 +455,14 @@ function Chat() {
   const send = useCallback(async () => {
     const text = input.trim();
     if ((!text && attachments.length === 0) || isStreaming) return;
+
+    // If voice call is active, use sendText to bypass STT and go straight to onTurn
+    if (voiceStatus !== "idle" && attachments.length === 0) {
+      sendText(text);
+      setInput("");
+      return;
+    }
+
     setInput("");
 
     const parts: Array<
@@ -470,7 +481,7 @@ function Chat() {
 
     sendMessage({ role: "user", parts });
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }, [input, attachments, isStreaming, sendMessage]);
+  }, [input, attachments, isStreaming, sendMessage, voiceStatus, sendText]);
 
   return (
     <div
@@ -479,6 +490,27 @@ function Chat() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Voice Status Overlay */}
+      {voiceStatus !== "idle" && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 pointer-events-none">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-kumo-contrast text-kumo-inverse text-xs font-medium animate-pulse shadow-lg">
+            <div
+              className="w-2 h-2 rounded-full bg-kumo-brand"
+              style={{
+                transform: `scale(${1 + (audioLevel || 0) * 2})`,
+                transition: "transform 0.1s ease-out"
+              }}
+            />
+            {voiceStatus.toUpperCase()}
+          </div>
+          {interimTranscript && (
+            <div className="px-3 py-1 rounded-lg bg-kumo-base/80 backdrop-blur-sm text-kumo-default text-sm italic border border-kumo-line">
+              {interimTranscript}
+            </div>
+          )}
+        </div>
+      )}
+
       {isDragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-kumo-elevated/80 backdrop-blur-sm border-2 border-dashed border-kumo-brand rounded-xl m-2 pointer-events-none">
           <div className="flex flex-col items-center gap-2 text-kumo-brand">

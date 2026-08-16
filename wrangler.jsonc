@@ -34,23 +34,19 @@
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "ChatAgent",
-        "name": "ChatAgent"
+        "class_name": "VoiceAgent",
+        "name": "VoiceAgent"
       },
       {
-        "class_name": "MyVoiceAgent",
+        "class_name": "VoiceAgent",
         "name": "MyVoiceAgent"
       }
     ]
   },
   "migrations": [
     {
-      "new_sqlite_classes": ["ChatAgent"],
+      "new_sqlite_classes": ["VoiceAgent"],
       "tag": "v1"
-    },
-    {
-      "new_sqlite_classes": ["MyVoiceAgent"],
-      "tag": "v2"
     }
   ],
   "observability": {

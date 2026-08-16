@@ -12,7 +12,7 @@ function App() {
     startCall,
     endCall,
     toggleMute
-  } = useVoiceAgent({ agent: "ChatAgent" });
+  } = useVoiceAgent({ agent: "VoiceAgent" });
 
   return (
     <div className="p-8 font-sans">

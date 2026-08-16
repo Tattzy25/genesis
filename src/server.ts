@@ -17,9 +17,9 @@ import {
 } from "ai";
 import { z } from "zod";
 
-const VoiceAgent = withVoice(AIChatAgent);
+const VoiceAgentMixin = withVoice(AIChatAgent);
 
-export class ChatAgent extends VoiceAgent<Env> {
+export class ChatAgent extends VoiceAgentMixin<Env> {
   maxPersistedMessages = 100;
   chatRecovery = true;
   // Wait for MCP connections to be re-established after hibernation before
@@ -51,7 +51,7 @@ export class ChatAgent extends VoiceAgent<Env> {
   }
 
   async onCallStart(connection: unknown) {
-    await this.speak(connection, "Hi there! How can I help you today?");
+    await this.speak(connection as Connection, "Hi there! How can I help you today?");
   }
 
   onStart() {
