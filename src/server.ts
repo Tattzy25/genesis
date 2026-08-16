@@ -92,7 +92,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         ...mcpTools,
 
 
-               getR2File: tool({
+                       getR2File: tool({
           description:
             "Read any file from the shopify-skill R2 bucket.",
           inputSchema: z.object({
@@ -101,7 +101,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           execute: async ({ key }) => {
             const object = await this.env.R2.get(key);
 
-
             return {
               key,
               contentType: object?.httpMetadata?.contentType ?? "unknown",
@@ -110,8 +109,36 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
+        listR2Files: tool({
+          description:
+            "List files and folders in the shopify-skill R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
+          inputSchema: z.object({
+            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
+            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
+            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+          }),
+          execute: async ({ prefix, delimiter, cursor, limit }) => {
+            const result = await this.env.R2.list({
+              prefix: prefix || undefined,
+              delimiter: delimiter || undefined,
+              cursor: cursor || undefined,
+              limit: limit || 1000
+            });
+            return {
+              folders: result.delimitedPrefixes,
+              files: result.objects.map(o => ({
+                key: o.key,
+                size: o.size,
+                contentType: o.httpMetadata?.contentType ?? "unknown"
+              })),
+              truncated: result.truncated,
+              cursor: result.truncated ? result.cursor : null
+            };
+          }
+        }),
 
-        getAgenticCommerceFile: tool({
+                getAgenticCommerceFile: tool({
           description:
             "Read any file from the agentic-commerce R2 bucket.",
           inputSchema: z.object({
@@ -120,7 +147,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           execute: async ({ key }) => {
             const object = await this.env["r2-agentic-commerce"].get(key);
 
-
             return {
               key,
               contentType: object?.httpMetadata?.contentType ?? "unknown",
@@ -129,8 +155,36 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           }
         }),
 
+        listAgenticCommerceFiles: tool({
+          description:
+            "List files and folders in the agentic-commerce R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
+          inputSchema: z.object({
+            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
+            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
+            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+          }),
+          execute: async ({ prefix, delimiter, cursor, limit }) => {
+            const result = await this.env["r2-agentic-commerce"].list({
+              prefix: prefix || undefined,
+              delimiter: delimiter || undefined,
+              cursor: cursor || undefined,
+              limit: limit || 1000
+            });
+            return {
+              folders: result.delimitedPrefixes,
+              files: result.objects.map(o => ({
+                key: o.key,
+                size: o.size,
+                contentType: o.httpMetadata?.contentType ?? "unknown"
+              })),
+              truncated: result.truncated,
+              cursor: result.truncated ? result.cursor : null
+            };
+          }
+        }),
 
-        getCloudflareSkillFile: tool({
+                getCloudflareSkillFile: tool({
           description:
             "Read any file from the cloudflare-skills R2 bucket.",
           inputSchema: z.object({
@@ -139,7 +193,6 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
           execute: async ({ key }) => {
             const object = await this.env["r2-cloudflare"].get(key);
 
-
             return {
               key,
               contentType: object?.httpMetadata?.contentType ?? "unknown",
@@ -147,6 +200,36 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             };
           }
         }),
+
+        listCloudflareSkillFiles: tool({
+          description:
+            "List files and folders in the cloudflare-skills R2 bucket. Use prefix to browse into a folder (e.g. 'folder/'), delimiter '/' to group into folders, cursor for pagination.",
+          inputSchema: z.object({
+            prefix: z.string().optional().describe("Folder prefix to list (e.g. 'folder/'). Omit to list root."),
+            delimiter: z.string().optional().describe("Delimiter to group keys into folders (use '/')."),
+            cursor: z.string().optional().describe("Pagination cursor from a previous truncated result."),
+            limit: z.number().optional().describe("Max objects per page (default 1000, max 1000).")
+          }),
+          execute: async ({ prefix, delimiter, cursor, limit }) => {
+            const result = await this.env["r2-cloudflare"].list({
+              prefix: prefix || undefined,
+              delimiter: delimiter || undefined,
+              cursor: cursor || undefined,
+              limit: limit || 1000
+            });
+            return {
+              folders: result.delimitedPrefixes,
+              files: result.objects.map(o => ({
+                key: o.key,
+                size: o.size,
+                contentType: o.httpMetadata?.contentType ?? "unknown"
+              })),
+              truncated: result.truncated,
+              cursor: result.truncated ? result.cursor : null
+            };
+          }
+        }),
+
        
         // Client-side tool: no execute function — the browser handles it
         getUserTimezone: tool({
